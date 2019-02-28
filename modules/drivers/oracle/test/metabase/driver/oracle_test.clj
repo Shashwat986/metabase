@@ -1,7 +1,7 @@
 (ns metabase.driver.oracle-test
   "Tests for specific behavior of the Oracle driver."
   (:require [clojure.java.jdbc :as jdbc]
-            [expectations :refer :all]
+            [expectations :refer [expect]]
             [metabase
              [driver :as driver]
              [query-processor :as qp]
@@ -124,3 +124,43 @@
             {:database (data/id)
              :type     :query
              :query    {:source-table (u/get-id table)}}))))))
+
+(defn- num-open-cursors
+  "Get the number of open cursors for current User"
+  []
+  (let [{:keys [details]}   (driver/with-driver :oracle (data/db))
+        spec                (sql-jdbc.conn/connection-details->spec :oracle details)
+        [{:keys [cursors]}] (jdbc/query
+                             spec
+                             [(str
+                               "SELECT sum(a.value) AS cursors "
+                               "FROM v$sesstat a, v$statname b, v$session s "
+                               "WHERE a.statistic# = b.statistic# "
+                               "  AND s.sid=a.sid "
+                               "  AND lower(s.username) = lower(?) "
+                               "  AND b.name = 'opened cursors current'")
+                              (:user details)])]
+    (some-> cursors int)))
+
+;; make sure that running the sync process doesn't leak cursors because it's not closing the ResultSets
+;; See issues #4389, #6028, and #6467
+(defn- num-open-cursors-after-n-syncs [n]
+  (driver/with-driver :oracle
+    (dorun
+     (pmap
+      (fn [_]
+        (driver/describe-database :oracle (data/db)))
+      (range n))))
+  (num-open-cursors))
+
+(expect-with-driver :oracle
+  ;; before doing any syncing first we should make sure the connection pool is
+  (do
+    ;; first clear out the existing connection pool
+    (driver/notify-database-updated :oracle (driver/with-driver :oracle (data/db)))
+    ;; then slam the DB with about 40 simultaneous syncs to make sure the connection pool is fully saturated, and all
+    ;; the connections are being used. The connections will each keep a few open cursors since they don't get closed
+    ;; right away -- that's ok -- it's leaking cursors during sync that cause us problems
+    (num-open-cursors-after-n-syncs 40))
+  ;; doing 10 more syncs shouldn't cause the number to go any higher
+  (num-open-cursors-after-n-syncs 10))
