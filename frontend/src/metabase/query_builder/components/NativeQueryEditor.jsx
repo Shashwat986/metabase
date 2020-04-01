@@ -441,7 +441,9 @@ export default class NativeQueryEditor extends Component {
   }
 
   toggleEditor = () => {
-    this.props.setIsNativeEditorOpen(!this.props.isNativeEditorOpen);
+    if (this.props.query.hasWritePermission()) {
+      this.props.setIsNativeEditorOpen(!this.props.isNativeEditorOpen);
+    }
   };
 
   /// Change the Database we're currently editing a query for.
@@ -561,7 +563,9 @@ export default class NativeQueryEditor extends Component {
       toggleEditorText = null;
       toggleEditorIcon = "contract";
     } else {
-      toggleEditorText = t`Open Editor`;
+      toggleEditorText = query.hasWritePermission()
+        ? t`Open Editor`
+        : t``;
       toggleEditorIcon = "expand";
     }
     const dragHandle = (
