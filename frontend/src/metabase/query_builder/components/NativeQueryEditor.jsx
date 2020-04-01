@@ -260,7 +260,9 @@ export default class NativeQueryEditor extends Component {
   }
 
   toggleEditor = () => {
-    this.setState({ showEditor: !this.state.showEditor });
+    if (this.props.query.hasWritePermission()) {
+      this.setState({ showEditor: !this.state.showEditor });
+    }
   };
 
   /// Change the Database we're currently editing a query for.
@@ -357,7 +359,7 @@ export default class NativeQueryEditor extends Component {
       editorClasses = "hide";
       toggleEditorText = query.hasWritePermission()
         ? t`Open Editor`
-        : t`Show Query`;
+        : t``;
       toggleEditorIcon = "expand";
     }
 
