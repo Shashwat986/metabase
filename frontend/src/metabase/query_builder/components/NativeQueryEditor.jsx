@@ -371,7 +371,9 @@ export default class NativeQueryEditor extends Component {
   }
 
   toggleEditor = () => {
-    this.props.setIsNativeEditorOpen(!this.props.isNativeEditorOpen);
+    if (this.props.query.hasWritePermission()) {
+      this.props.setIsNativeEditorOpen(!this.props.isNativeEditorOpen);
+    }
   };
 
   /// Change the Database we're currently editing a query for.
@@ -478,7 +480,7 @@ export default class NativeQueryEditor extends Component {
     } else {
       toggleEditorText = query.hasWritePermission()
         ? t`Open Editor`
-        : t`Show Query`;
+        : t``;
       toggleEditorIcon = "expand";
     }
     const dragHandle = (
